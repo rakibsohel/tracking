@@ -40,7 +40,13 @@ class Monitoring(Thread):
         self.typeFile       = list(extension)
         self.path           = list(folder)
         self.vFname         = str(vFname)
-        self.freqMonitoring = 60
+        self.freqMonitoring = 6
+
+        #Variable de détection d'ajout de fichier.
+        self.flagP          = False
+
+        #Variable de détection de suppression de fichier.
+        self.flagM          = False        
         
         os.chdir(self.path[0])
 
@@ -135,6 +141,9 @@ class Monitoring(Thread):
                 #Détection des fichiers supprimés.
                 if(self.nPrev > self.iPrev) and (self.nModif != 0):
 
+                    #Flag de détection.
+                    self.flagM = True                    
+
                     #Récupération de la date et uniquement de l'heure.
                     self.tmps = datetime.datetime.now()
                     self.logFileName = str(self.tmps.year)+"_"+str(self.tmps.month)+"_"+str(self.tmps.day)+"__"+str(self.tmps.hour)
@@ -160,6 +169,9 @@ class Monitoring(Thread):
 
                 #Détection des fichiers ajoutés.            
                 if(self.nPrev < self.iPrev) and (self.nModif != 0):
+
+                    #Flag de détection.
+                    self.flagP = True
 
                     #Récupération de la date et uniquement de l'heure.
                     self.tmps = datetime.datetime.now()
@@ -216,12 +228,36 @@ class Monitoring(Thread):
     
     def _set_freqMonitoring(self,val_freqMonitoring):
         
-        if(val_freqMonitoring > 60):
+        if(val_freqMonitoring > 6):
             self._freqMonitoring = val_freqMonitoring
         else:
-            self._freqMonitoring = 60            
+            self._freqMonitoring = 6            
 
-    freqMonitoring = property(_get_freqMonitoring,_set_freqMonitoring)    
+    freqMonitoring = property(_get_freqMonitoring,_set_freqMonitoring)
+
+    """
+    Flag de détection d'ajout d'un fichier dans le répertoire virtuel.                                             
+    """
+        
+    def _get_flagP(self):
+        return(self._flagP)
+
+    def _set_flagP(self,val_flagP):
+        self._flagP = val_flagP
+
+    flagP = property(_get_flagP,_set_flagP)
+
+    """
+    Flag de détection de suppression d'un fichier dans le répertoire virtuel.                                             
+    """
+        
+    def _get_flagM(self):
+        return(self._flagM)
+
+    def _set_flagM(self,val_flagM):
+        self._flagM = val_flagM
+
+    flagM = property(_get_flagM,_set_flagM)      
 
 def testModule():
     """
@@ -239,6 +275,38 @@ def testModule():
     
     #Lancement du thread en tâche de fond.
     module.start()
+
+    #Boucle permettant d'éxecuter une action après la détection d'un évènement.
+    while 1 :
+
+        #Attente tant qu'il n'y pas d'action (ajout ou de suppression de fichier).
+        while ((module.flagP == False) and (module.flagM == False)):
+            time.sleep(1)
+
+        #Action détecté#
+            
+        #Initialisation du flag de détection.
+        if(module.flagP == True):
+
+            #Récupération des fichiers ajoutés.
+            NewFile = module.lst_Modif
+
+            #Routine de traitement sur le(s) fichier(s).
+            for fic in NewFile :
+                print("+ "+fic)
+            
+        #Initialisation du flag de détection.
+        if(module.flagM == True):
+            
+            #Récupération des fichiers ajoutés.
+            NewFile = module.lst_Modif
+
+            #Routine de traitement sur le(s) fichier(s).
+            for fic in NewFile :
+                print("- "+fic)
+
+        module.flagP = False
+        module.flagM = False
 
     #Attente de la fin de la tâche.
     module.join()
