@@ -40,19 +40,54 @@ class Monitoring(Thread):
         self.typeFile       = list(extension)
         self.path           = list(folder)
         self.vFname         = str(vFname)
-        self.freqMonitoring = 6
+        self.freqMonitoring = 60
 
         #Variable de détection d'ajout de fichier.
         self.flagP          = False
 
         #Variable de détection de suppression de fichier.
-        self.flagM          = False        
+        self.flagM          = False
+
+        self.lst_DirFic     = []
         
         os.chdir(self.path[0])
 
         #Création du répertoire des logs s'il n'existe pas.
         if(os.path.isdir(self.path[0]+"/logs") == False):
             os.mkdir("logs")
+
+    def getPathName(self,lst_directories, fName):
+
+        """
+        Cette fonction renvoie le nom du répertoire logique
+        à partir du nom du fichier.
+        """
+
+        self.tpl_directories = ()
+        self.tpl_files       = ()
+        self.lst_allFile     = []
+
+        self.pathName        = ""
+        self.fName           = fName
+
+        self.lst_directories = lst_directories
+
+        for self.directory in self.lst_directories:
+
+            self.tpl_directories_files = (self.directory,os.listdir(self.directory))
+
+            self.lst_allFile.append(self.tpl_directories_files)
+    
+        for self.tpl in self.lst_allFile:
+
+            try :
+                self.tpl[1].index(self.fName)
+                self.pathName = self.tpl[0]
+                break
+            except :
+                pass
+
+        return(self.pathName,self.fName)       
     
     def getFiles(self):
         """
@@ -112,7 +147,7 @@ class Monitoring(Thread):
                     self.lst_newElmt.append(self.elm)
 
         return(self.lst_newElmt)
-
+            
     def run(self):
         """
         Fonction de détection de l'activité dans le répertoire                       
@@ -139,29 +174,20 @@ class Monitoring(Thread):
                 self.nModif    = len(self.lst_Modif)                
 
                 #Détection des fichiers supprimés.
-                if(self.nPrev > self.iPrev) and (self.nModif != 0):
-
-                    #Flag de détection.
-                    self.flagM = True                    
-
-                    #Récupération de la date et uniquement de l'heure.
-                    self.tmps = datetime.datetime.now()
-                    self.logFileName = str(self.tmps.year)+"_"+str(self.tmps.month)+"_"+str(self.tmps.day)+"__"+str(self.tmps.hour)
+                if(self.nPrev > self.iPrev) and (self.nModif != 0):                  
 
                     #Création ou ouverture du fichier si existant log.
-                    self.fileLog  = open(self.path[0]+"/logs/"+self.vFname+"_"+self.logFileName+"H.log","a")                    
+                    self.fileLog  = open(self.path[0]+"/logs/"+self.vFname+"_"+self.DateTime("FileLog")+".log","a")                    
 
                     #Écriture l'événement dans le fichier.
                     print("================================================")
                     for self.nElmt in self.lst_Modif:
 
                         #Ecriture dans le fichier log.
-                        self.fileLog.write("- ["+str(self.tmps.year)+str(self.tmps.month)+str(self.tmps.day)
-                                           +str(self.tmps.hour)+str(self.tmps.minute)+str(self.tmps.second)+"] ["+self.vFname+"] ["+self.nElmt+"]\n")
+                        self.fileLog.write("- ["+self.DateTime("Reference")+"] ["+self.vFname+"] ["+self.nElmt+"]\n")
 
                         #Affichage dans la console.
-                        print("- ["+str(self.tmps.year)+str(self.tmps.month)+str(self.tmps.day)
-                              +str(self.tmps.hour)+str(self.tmps.minute)+str(self.tmps.second)+"] [["+self.vFname+"] ["+self.nElmt+"]")
+                        print("- ["+self.DateTime("Reference")+"] ["+self.vFname+"] ["+self.nElmt+"]")
                         
                     print("================================================")
 
@@ -173,25 +199,23 @@ class Monitoring(Thread):
                     #Flag de détection.
                     self.flagP = True
 
-                    #Récupération de la date et uniquement de l'heure.
-                    self.tmps = datetime.datetime.now()
-                    self.logFileName = str(self.tmps.year)+"_"+str(self.tmps.month)+"_"+str(self.tmps.day)+"__"+str(self.tmps.hour)
-
                     #Création ou ouverture du fichier si existant log.
-                    self.fileLog  = open(self.path[0]+"/logs/"+self.vFname+"_"+self.logFileName+"H.log","a")                      
+                    self.fileLog  = open(self.path[0]+"/logs/"+self.vFname+"_"+self.DateTime("FileLog")+".log","a")                      
 
                     #Écriture l'événement dans le fichier.
                     print("================================================")
                     for self.nElmt in self.lst_Modif:
 
+                         tplDirFic = (self.getPathName(self.path,self.nElmt))
+
+                         self.lst_DirFic.append(tplDirFic)
+
                          #Ecriture dans le fichier log.                        
-                         self.fileLog.write("+ ["+str(self.tmps.year)+str(self.tmps.month)+str(self.tmps.day)
-                                            +str(self.tmps.hour)+str(self.tmps.minute)+str(self.tmps.second)+"] ["+self.vFname+"] ["+self.nElmt+"]\n")
+                         self.fileLog.write("+ ["+self.DateTime("Reference")+"] ["+self.vFname+" : "+tplDirFic[0]+"] ["+self.nElmt+"]\n")
 
                          #Affichage dans la console.
-                         print("+ ["+str(self.tmps.year)+str(self.tmps.month)+str(self.tmps.day)
-                               +str(self.tmps.hour)+str(self.tmps.minute)+str(self.tmps.second)+"] ["+self.vFname+"] ["+self.nElmt+"]")
-                         
+                         print("+ ["+self.DateTime("Reference")+"] ["+self.vFname+" : "+tplDirFic[0]+"] ["+self.nElmt+"]")
+
                     print("================================================")
                     
                     self.fileLog.close()
@@ -205,6 +229,20 @@ class Monitoring(Thread):
 
                 time.sleep(self.freqMonitoring)
 
+
+    def DateTime(self,TdateTime):
+
+        self.TdateTime = TdateTime
+
+        #Récupération de la date et uniquement de l'heure.
+        self.tmps = datetime.datetime.now()
+
+        if(self.TdateTime.upper() == "FILELOG"):
+            return(str(self.tmps.year)+"_"+str(self.tmps.month)+"_"+str(self.tmps.day)+"__"+str(self.tmps.hour)+"H")
+
+        if(self.TdateTime.upper() == "REFERENCE"):
+            return(str(self.tmps.year)+str(self.tmps.month)+str(self.tmps.day))
+              
     """
     Attribut permettant de configurer les types de fichier à surveiller.          
     L'extension par défaut est ".TXT"                                             
@@ -228,10 +266,10 @@ class Monitoring(Thread):
     
     def _set_freqMonitoring(self,val_freqMonitoring):
         
-        if(val_freqMonitoring > 6):
+        if(val_freqMonitoring > 60):
             self._freqMonitoring = val_freqMonitoring
         else:
-            self._freqMonitoring = 6            
+            self._freqMonitoring = 60            
 
     freqMonitoring = property(_get_freqMonitoring,_set_freqMonitoring)
 
@@ -257,7 +295,15 @@ class Monitoring(Thread):
     def _set_flagM(self,val_flagM):
         self._flagM = val_flagM
 
-    flagM = property(_get_flagM,_set_flagM)      
+    flagM = property(_get_flagM,_set_flagM)
+
+    def _get_tplDirFic(self):
+        return(self._tplDirFic)
+
+    def _set_tplDirFic(self,val_tplDirFic):
+        self._tplDirFic = val_tplDirFic
+
+    tplDirFic = property(_get_tplDirFic,_set_tplDirFic) 
 
 def testModule():
     """
@@ -275,7 +321,7 @@ def testModule():
     
     #Lancement du thread en tâche de fond.
     module.start()
-
+    
     #Boucle permettant d'éxecuter une action après la détection d'un évènement.
     while 1 :
 
@@ -292,19 +338,18 @@ def testModule():
             NewFile = module.lst_Modif
 
             #Routine de traitement sur le(s) fichier(s).
-            for fic in NewFile :
-                print("+ "+fic)
+            for tpl_FolFic in module.lst_DirFic :
+                print(tpl_FolFic)
+
+                #Routine traitement sur le fichier....
             
         #Initialisation du flag de détection.
         if(module.flagM == True):
-            
-            #Récupération des fichiers ajoutés.
-            NewFile = module.lst_Modif
+            pass
 
-            #Routine de traitement sur le(s) fichier(s).
-            for fic in NewFile :
-                print("- "+fic)
+            #Routine de traitement sur le(s) fichier(s).                
 
+        #Initialisation des flags.
         module.flagP = False
         module.flagM = False
 
