@@ -2,7 +2,6 @@
 
 import time
 import os
-
 from   threading import Thread, RLock
 
 verrou = RLock()
@@ -20,10 +19,14 @@ class Monitoring(Thread):
         print("Monitoring "+self.name+"\n")
 
     def run(self):
+
+        #Execution de la tâche.
         self.GetDiffDir()
 
     def GetDiffDir(self):        
-
+        """
+        Cette fonction détecte la nature de la modification dans le répertoire.   
+        """
         while 1 :
 
             self.lst_prev  = self.GetAllDir()       
@@ -78,7 +81,10 @@ class Monitoring(Thread):
         return(self.lst_newElmt)
 
     def GetAllDir(self):
-
+        """
+        Cette fonction renvoie une liste des éléments du répertoire.   
+        """
+        
         with verrou :
         
             os.chdir(self.name)
@@ -109,27 +115,40 @@ class Monitoring(Thread):
 
 def main():
     
-    # Create new threads
+    # Création des threads.
     thread1 = Monitoring("C:/GitHub/testA")
     thread2 = Monitoring("C:/GitHub/testB")
 
-    # Start new Threads
+    # Lancement des threads.
     thread1.start()
     thread2.start()
 
+    #Execution
     while 1 :
-    
+
+        #Attente d'une détection d'ajout de fichier dans un répertoire.
         while (thread1.flagAdd == False) and (thread2.flagAdd == False):
             time.sleep(1)
 
+        #Détection d'ajout de fichier dans le répertoire du thread1.
         if(thread1.flagAdd == True):
+
+            #Récupération et affichage de la liste des fichier ajoutés.
             print(thread1.lst_diffFiles)
+
+            #Initialisation du flag de détection.
             thread1.flagAdd = False
 
+        #Détection d'ajout de fichier dans le répertoire du thread2.
         if(thread2.flagAdd == True):
+
+            #Récupération et affichage de la liste des fichier ajoutés.
             print(thread2.lst_diffFiles)
+
+            #Initialisation du flag de détection.
             thread2.flagAdd = False        
 
+    #Attente de la fin terminaison des threads.
     thread1.join()
     thread2.join()
 
