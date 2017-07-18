@@ -1,116 +1,45 @@
-#################################################################################
-# Projet : NetBook                                                              #
-# Nom    : Module tracking                                                      #
-# Auteur : R.BEPARI                                                             #
-# Date   : 15/07/2017                                                           #
-#################################################################################
+#!/usr/bin/python3
 
-
-#################################################################################
-# Bibliothèques                                                                 #    
-#################################################################################
-    
-import os
 import time
+import os
+
 from   threading import Thread, RLock
-import datetime
 
 verrou = RLock()
 
-#################################################################################
-# Définition de la classe Monitoring                                            #    
-#################################################################################
 class Monitoring(Thread):
-
-    """
-    Cette classe permet de surveiller l'activité d'un répertoire.
-    Elle s'éxecute en arrière plan.
-    """
-
-    def __init__(self,folder = "C:/GitHub",extension = ".TXT", vFname = "vFname"):            
-        """
-        Constructeur de la classe.
-        """
+    
+    def __init__(self,name):
         
-        #Intialisation de l'objet Thread.
         Thread.__init__(self)
-        self.deamon         = True
 
-        #Initialisation des attributs
-        self.typeFile       = list(extension)
-        self.path           = list(folder)
-        self.vFname         = str(vFname)
-        self.freqMonitoring = 60
+        self._flagAdd      = False
+        self.name          = name
+        self.lst_diffFiles = []
 
-        #Variable de détection d'ajout de fichier.
-        self.flagP          = False
+        print("Monitoring "+self.name+"\n")
 
-        #Variable de détection de suppression de fichier.
-        self.flagM          = False
+    def run(self):
+        self.GetDiffDir()
 
-        self.lst_DirFic     = []
-        
-        os.chdir(self.path[0])
+    def GetDiffDir(self):        
 
-        #Création du répertoire des logs s'il n'existe pas.
-        if(os.path.isdir(self.path[0]+"/logs") == False):
-            os.mkdir("logs")
+        while 1 :
 
-    def getPathName(self,lst_directories, fName):
+            self.lst_prev  = self.GetAllDir()       
+            self.n_lstPrev = len(self.lst_prev)
 
-        """
-        Cette fonction renvoie le nom du répertoire logique
-        à partir du nom du fichier.
-        """
+            time.sleep(2)
 
-        self.tpl_directories = ()
-        self.tpl_files       = ()
-        self.lst_allFile     = []
+            self.lst_after  = self.GetAllDir()
+            self.n_lstAfter = len(self.lst_after)
+            
+            if(self.n_lstPrev < self.n_lstAfter):
+                self.lst_diffFiles = self.getNewElmt(self.lst_prev, self.lst_after)
+                self._flagAdd = True                
 
-        self.pathName        = ""
-        self.fName           = fName
-
-        self.lst_directories = lst_directories
-
-        for self.directory in self.lst_directories:
-
-            self.tpl_directories_files = (self.directory,os.listdir(self.directory))
-
-            self.lst_allFile.append(self.tpl_directories_files)
-    
-        for self.tpl in self.lst_allFile:
-
-            try :
-                self.tpl[1].index(self.fName)
-                self.pathName = self.tpl[0]
-                break
-            except :
-                pass
-
-        return(self.pathName,self.fName)       
-    
-    def getFiles(self):
-        """
-        Cette fonction renvoie une liste contenant le contenu du répertoire.              
-        """
-
-        self.lst_files = []
-
-        #Récupération des éléments avec l'extension typeFile du répertoire.
-        self.cDirectory = []
-
-        for self.link in self.path:
-            self.cDirectory.extend(os.listdir(self.link))
-
-        #Recherche des fichiers avec les extensions.
-        for self.fileName in self.cDirectory:        
-
-            for self.ext in self.typeFile:
-                
-                if((self.fileName.endswith(self.ext.lower())) or (self.fileName.endswith(self.ext.upper()))):
-                    self.lst_files.append(self.fileName)
-
-        return(self.lst_files)
+            if(self.n_lstPrev > self.n_lstAfter):
+                print("Delete file(s) from "+self.name+"\n")               
 
     def getNewElmt(self,lst_a, lst_b):
         """
@@ -147,217 +76,62 @@ class Monitoring(Thread):
                     self.lst_newElmt.append(self.elm)
 
         return(self.lst_newElmt)
+
+    def GetAllDir(self):
+
+        with verrou :
+        
+            os.chdir(self.name)
             
-    def run(self):
-        """
-        Fonction de détection de l'activité dans le répertoire                       
+            self.lst_oneShoot     = []        
+
+            for self.root, self.dirs, self.files in os.walk(self.name, topdown=False):
+            
+                for self.fName in self.files:
+                    self.lst_oneShoot.append(str(os.path.join(self.root,self.fName)).replace("\\","/"))
+
+            return(self.lst_oneShoot)            
         
-        """
-        with verrou:
-            print("*********************************************")
-            print("Monitoring -> ["+self.vFname+"] ["+"|".join(self.path)+"]")            
-            print("Start...")
-            self.lst_file = sorted((self.getFiles()))
-            self.nPrev    = len(self.lst_file)
-            time.sleep(5)
-            print("Monitoring...")
-            print("*********************************************")
+            del self.lst_oneShoot            
 
-        while 1:
+    def _get_flagAdd(self):
+        return(self._flagAdd)
 
-            with verrou:                               
-                
-                self.ilst_file = sorted((self.getFiles()))
-                self.iPrev    = len(self.ilst_file)                
+    def _set_flagAdd(self,flagAdd):
 
-                self.lst_Modif = self.getNewElmt(self.lst_file,self.ilst_file)
-                self.nModif    = len(self.lst_Modif)                
+        #Suppression des listes.
+        del self.lst_prev
+        del self.lst_after
 
-                #Détection des fichiers supprimés.
-                if(self.nPrev > self.iPrev) and (self.nModif != 0):                  
+        self._flagAdd = flagAdd
 
-                    #Création ou ouverture du fichier si existant log.
-                    self.fileLog  = open(self.path[0]+"/logs/"+self.vFname+"_"+self.DateTime("FileLog")+".log","a")                    
+    flagAdd = property(_get_flagAdd,_set_flagAdd)
 
-                    #Écriture l'événement dans le fichier.
-                    print("================================================")
-                    for self.nElmt in self.lst_Modif:
-
-                        #Ecriture dans le fichier log.
-                        self.fileLog.write("- ["+self.DateTime("Reference")+"] ["+self.vFname+"] ["+self.nElmt+"]\n")
-
-                        #Affichage dans la console.
-                        print("- ["+self.DateTime("Reference")+"] ["+self.vFname+"] ["+self.nElmt+"]")
-                        
-                    print("================================================")
-
-                    self.fileLog.close()
-
-                #Détection des fichiers ajoutés.            
-                if(self.nPrev < self.iPrev) and (self.nModif != 0):
-
-                    #Flag de détection.
-                    self.flagP = True
-
-                    #Création ou ouverture du fichier si existant log.
-                    self.fileLog  = open(self.path[0]+"/logs/"+self.vFname+"_"+self.DateTime("FileLog")+".log","a")                      
-
-                    #Écriture l'événement dans le fichier.
-                    print("================================================")
-                    for self.nElmt in self.lst_Modif:
-
-                         tplDirFic = (self.getPathName(self.path,self.nElmt))
-
-                         self.lst_DirFic.append(tplDirFic)
-
-                         #Ecriture dans le fichier log.                        
-                         self.fileLog.write("+ ["+self.DateTime("Reference")+"] ["+self.vFname+" : "+tplDirFic[0]+"] ["+self.nElmt+"]\n")
-
-                         #Affichage dans la console.
-                         print("+ ["+self.DateTime("Reference")+"] ["+self.vFname+" : "+tplDirFic[0]+"] ["+self.nElmt+"]")
-
-                    print("================================================")
-                    
-                    self.fileLog.close()
-
-                #Détection de l'inactivité.
-                if(self.nModif == 0):
-                    print("nothing new...")
-
-                self.lst_file = sorted((self.getFiles()))
-                self.nPrev    = len(self.lst_file)
-
-                time.sleep(self.freqMonitoring)
-
-
-    def DateTime(self,TdateTime):
-
-        self.TdateTime = TdateTime
-
-        #Récupération de la date et uniquement de l'heure.
-        self.tmps = datetime.datetime.now()
-
-        if(self.TdateTime.upper() == "FILELOG"):
-            return(str(self.tmps.year)+"_"+str(self.tmps.month)+"_"+str(self.tmps.day)+"__"+str(self.tmps.hour)+"H")
-
-        if(self.TdateTime.upper() == "REFERENCE"):
-            return(str(self.tmps.year)+str(self.tmps.month)+str(self.tmps.day))
-              
-    """
-    Attribut permettant de configurer les types de fichier à surveiller.          
-    L'extension par défaut est ".TXT"                                             
-    """
-        
-    def _get_typeFile(self):
-        return(self._typeFile)
-
-    def _set_typeFile(self,val_typeFile):
-        self._typeFile = val_typeFile
-
-    typeFile = property(_get_typeFile,_set_typeFile)
-
-    """
-    Attribut permettant de configurer la fréquence de surveillance du répertoire.  
-    La durée minimum est de 60 secondes.                                          
-    """
-
-    def _get_freqMonitoring(self):
-        return(self._freqMonitoring)
+def main():
     
-    def _set_freqMonitoring(self,val_freqMonitoring):
-        
-        if(val_freqMonitoring > 60):
-            self._freqMonitoring = val_freqMonitoring
-        else:
-            self._freqMonitoring = 60            
+    # Create new threads
+    thread1 = Monitoring("C:/GitHub/testA")
+    thread2 = Monitoring("C:/GitHub/testB")
 
-    freqMonitoring = property(_get_freqMonitoring,_set_freqMonitoring)
+    # Start new Threads
+    thread1.start()
+    thread2.start()
 
-    """
-    Flag de détection d'ajout d'un fichier dans le répertoire virtuel.                                             
-    """
-        
-    def _get_flagP(self):
-        return(self._flagP)
-
-    def _set_flagP(self,val_flagP):
-        self._flagP = val_flagP
-
-    flagP = property(_get_flagP,_set_flagP)
-
-    """
-    Flag de détection de suppression d'un fichier dans le répertoire virtuel.                                             
-    """
-        
-    def _get_flagM(self):
-        return(self._flagM)
-
-    def _set_flagM(self,val_flagM):
-        self._flagM = val_flagM
-
-    flagM = property(_get_flagM,_set_flagM)
-
-    def _get_tplDirFic(self):
-        return(self._tplDirFic)
-
-    def _set_tplDirFic(self,val_tplDirFic):
-        self._tplDirFic = val_tplDirFic
-
-    tplDirFic = property(_get_tplDirFic,_set_tplDirFic) 
-
-def testModule():
-    """
-    Fonction de test du module.    
-    """
-
-    #Listes des répertoires à surveiller.
-    lst_dir       = ["C:/GitHub/gitRepTest","C:/GitHub/gitRepTest/prog","C:/GitHub/NetBook"]
-
-    #Spécification des types de fichier à surveiller.
-    lst_extension = [".txt",".psc",".py"]
-    
-    #Création de l'objet.
-    module = Monitoring(folder=lst_dir, extension=lst_extension,vFname="MyProject") 
-    
-    #Lancement du thread en tâche de fond.
-    module.start()
-    
-    #Boucle permettant d'éxecuter une action après la détection d'un évènement.
     while 1 :
-
-        #Attente tant qu'il n'y pas d'action (ajout ou de suppression de fichier).
-        while ((module.flagP == False) and (module.flagM == False)):
+    
+        while (thread1.flagAdd == False) and (thread2.flagAdd == False):
             time.sleep(1)
 
-        #Action détecté#
-            
-        #Initialisation du flag de détection.
-        if(module.flagP == True):
+        if(thread1.flagAdd == True):
+            print(thread1.lst_diffFiles)
+            thread1.flagAdd = False
 
-            #Récupération des fichiers ajoutés.
-            NewFile = module.lst_Modif
+        if(thread2.flagAdd == True):
+            print(thread2.lst_diffFiles)
+            thread2.flagAdd = False        
 
-            #Routine de traitement sur le(s) fichier(s).
-            for tpl_FolFic in module.lst_DirFic :
-                print(tpl_FolFic)
+    thread1.join()
+    thread2.join()
 
-                #Routine traitement sur le fichier....
-            
-        #Initialisation du flag de détection.
-        if(module.flagM == True):
-            pass
-
-            #Routine de traitement sur le(s) fichier(s).                
-
-        #Initialisation des flags.
-        module.flagP = False
-        module.flagM = False
-
-    #Attente de la fin de la tâche.
-    module.join()
-    
-if __name__ == '__main__':
-
-    #Fonction de test
-    testModule()
-        
+if __name__=='__main__':
+    main()
